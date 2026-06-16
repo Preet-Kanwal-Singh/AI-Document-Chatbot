@@ -4,6 +4,7 @@ from ..database import get_db
 from ..models import Document
 from ..schemas import DocumentResponse
 from ..services.extractor import extract_text
+from ..services.embedder import chunk_and_embed
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -25,12 +26,14 @@ async def upload_document(file: UploadFile = File(...), db: Session = Depends(ge
     if not text.strip():
         raise HTTPException(status_code=400, detail="Could not extract text from document")
 
-    document = Document(
-        filename=file.filename,
-        file_type=file_type,
-        status="extracted"
-    )
+    document = Document(filename=file.filename, file_type=file_type, status="embedding")
     db.add(document)
+    db.commit()
+    db.refresh(document)
+
+    chunk_and_embed(text, document.id)
+
+    document.status = "ready"
     db.commit()
     db.refresh(document)
 
