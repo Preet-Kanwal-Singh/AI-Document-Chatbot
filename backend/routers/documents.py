@@ -5,6 +5,7 @@ from ..models import Document
 from ..schemas import DocumentResponse
 from ..services.extractor import extract_text
 from ..services.embedder import chunk_and_embed
+from typing import List
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -13,6 +14,10 @@ ALLOWED_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
     "text/plain": "txt"
 }
+
+@router.get("/", response_model=List[DocumentResponse])
+def get_documents(db: Session = Depends(get_db)):
+    return db.query(Document).order_by(Document.uploaded_at.desc()).all()
 
 @router.post("/upload", response_model=DocumentResponse)
 async def upload_document(file: UploadFile = File(...), db: Session = Depends(get_db)):

@@ -36,12 +36,27 @@ def get_rag_response(query: str, document_id: int) -> str:
         return "I can only answer questions related to the uploaded document."
 
     context = "\n\n".join(chunks)
-
     prompt = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", "{question}")
     ])
+    chain = prompt | llm | StrOutputParser()
+    return chain.invoke({"context": context, "question": query})
 
+def stream_rag_response(query: str, document_id: int):
+    query_embedding = embeddings_model.embed_query(query)
+    chunks = query_chunks(query_embedding, document_id)
+
+    if not chunks:
+        yield "I can only answer questions related to the uploaded document."
+        return
+
+    context = "\n\n".join(chunks)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", SYSTEM_PROMPT),
+        ("human", "{question}")
+    ])
     chain = prompt | llm | StrOutputParser()
 
-    return chain.invoke({"context": context, "question": query})
+    for chunk in chain.stream({"context": context, "question": query}):
+        yield chunk
