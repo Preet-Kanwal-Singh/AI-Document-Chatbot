@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
+import ReactMarkdown from 'react-markdown'
 
 function Chat() {
   const { documentId } = useParams()
@@ -47,7 +48,7 @@ function Chat() {
   setMessages(prev => [...prev, { role: 'assistant', content: '' }])
 
   try {
-    const response = await fetch('http://localhost:8000/chat/stream', {
+    const response = await fetch('https://ai-document-chatbot-oqd9.onrender.com/chat/stream', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -165,13 +166,29 @@ function Chat() {
               color: '#e0e0e0',
               fontSize: '0.95rem',
               lineHeight: '1.5',
-              whiteSpace: 'pre-wrap',
+              whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
             }}>
-              {msg.content}
+              {msg.role === 'assistant'
+                ? <ReactMarkdown>{msg.content}</ReactMarkdown>
+                : msg.content
+              }
             </div>
           </div>
         ))}
-
+        {loading && messages[messages.length - 1]?.content === '' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
+            <div style={{
+              padding: '0.75rem 1rem',
+              borderRadius: '18px 18px 18px 4px',
+              backgroundColor: '#1a1d27',
+              color: '#888',
+              fontSize: '1.2rem',
+              letterSpacing: '2px',
+            }}>
+              <span style={{ animation: 'pulse 1s infinite' }}>•••</span>
+            </div>
+          </div>
+        )}
         
 
         <div ref={bottomRef} />
