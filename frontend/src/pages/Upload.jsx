@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import LoadingStatus from '../components/LoadingStatus'
+import { useAuth } from '../context/auth-context'
 
 const STEP_DELAYS = [0, 1000, 2500, 4000, 5000]
 
 function Upload() {
+  const { logout } = useAuth()
   const [file, setFile] = useState(null)
   const [uploading, setUploading] = useState(false)
   const [recentDocs, setRecentDocs] = useState([])
@@ -50,12 +52,30 @@ function Upload() {
   return (
     <div style={{
       minHeight: '100vh',
+      position: 'relative',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '2rem',
     }}>
+      <button
+        onClick={logout}
+        style={{
+          position: 'absolute',
+          top: '1.5rem',
+          right: '1.5rem',
+          background: 'none',
+          border: '1px solid #333',
+          color: '#888',
+          padding: '0.4rem 0.8rem',
+          borderRadius: '6px',
+          cursor: 'pointer',
+          fontSize: '0.85rem',
+        }}
+      >
+        Logout
+      </button>
       <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
         AI Document Chatbot
       </h1>

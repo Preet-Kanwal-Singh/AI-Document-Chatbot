@@ -2,10 +2,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api from '../api/axios'
 import ReactMarkdown from 'react-markdown'
+import { useAuth } from '../context/auth-context'
 
 function Chat() {
   const { documentId } = useParams()
   const navigate = useNavigate()
+  const { token, logout } = useAuth()
   const [messages, setMessages] = useState([])
   const [question, setQuestion] = useState('')
   const [loading, setLoading] = useState(false)
@@ -50,12 +52,21 @@ function Chat() {
   try {
     const response = await fetch('https://ai-document-chatbot-oqd9.onrender.com/chat/stream', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
       body: JSON.stringify({
         document_id: parseInt(documentId),
         question: userMessage.content,
       }),
     })
+
+    if (response.status === 401) {
+      logout()
+      navigate('/login')
+      return
+    }
 
     const reader = response.body.getReader()
     const decoder = new TextDecoder()
@@ -126,9 +137,23 @@ function Chat() {
         >
           ← New Document
         </button>
-        <span style={{ color: '#888', fontSize: '0.9rem' }}>
+        <span style={{ color: '#888', fontSize: '0.9rem', flex: 1 }}>
           {docName || `Document #${documentId}`}
         </span>
+        <button
+          onClick={() => { logout(); navigate('/login') }}
+          style={{
+            background: 'none',
+            border: '1px solid #333',
+            color: '#888',
+            padding: '0.4rem 0.8rem',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '0.85rem',
+          }}
+        >
+          Logout
+        </button>
       </div>
 
       {/* Messages */}
