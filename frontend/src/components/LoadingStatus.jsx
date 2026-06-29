@@ -1,6 +1,6 @@
 const steps = [
   'Uploading document',
-  'Extracting text',
+  'Processing Content',
   'Generating embeddings',
   'Saving data',
   'Preparing chatbot',

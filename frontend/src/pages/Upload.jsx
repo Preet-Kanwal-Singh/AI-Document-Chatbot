@@ -49,6 +49,16 @@ function Upload() {
     }
   }
 
+  const handleDelete = async (e, docId) => {
+    e.stopPropagation()
+    try {
+      await api.delete(`/documents/${docId}`)
+      setRecentDocs(prev => prev.filter(d => d.id !== docId))
+    } catch {
+      setError('Failed to delete document. Please try again.')
+    }
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -98,12 +108,12 @@ function Upload() {
         >
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
           <p style={{ color: '#888', marginBottom: '1rem' }}>
-            {file ? file.name : 'Click to select a PDF, DOCX, or TXT file'}
+            {file ? file.name : 'Click to select a document (PDF, DOCX, TXT) or audio file (MP3, WAV, M4A)'}
           </p>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,.txt"
+            accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.ogg,.webm,.flac"
             style={{ display: 'none' }}
             onChange={(e) => setFile(e.target.files[0])}
           />
@@ -166,9 +176,27 @@ function Upload() {
               }}
             >
               <span style={{ fontSize: '0.9rem', color: '#fff' }}>📄 {doc.filename}</span>
-              <span style={{ color: '#666', fontSize: '0.75rem' }}>
-                {new Date(doc.uploaded_at).toLocaleDateString()}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ color: '#666', fontSize: '0.75rem' }}>
+                  {new Date(doc.uploaded_at).toLocaleDateString()}
+                </span>
+                <button
+                  onClick={(e) => handleDelete(e, doc.id)}
+                  style={{
+                    background: 'none',
+                    border: '1px solid #444',
+                    color: '#888',
+                    borderRadius: '4px',
+                    padding: '0.2rem 0.5rem',
+                    cursor: 'pointer',
+                    fontSize: '0.8rem',
+                    lineHeight: 1,
+                  }}
+                  title="Delete document"
+                >
+                  ✕
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -176,5 +204,4 @@ function Upload() {
     </div>
   )
 }
-
 export default Upload

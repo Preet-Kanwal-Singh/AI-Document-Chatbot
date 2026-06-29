@@ -192,9 +192,24 @@ function Chat() {
               fontSize: '0.95rem',
               lineHeight: '1.5',
               whiteSpace: msg.role === 'user' ? 'pre-wrap' : 'normal',
+              wordBreak: 'break-word',      // add this
+              overflowWrap: 'break-word',   // add this
+              overflow: 'hidden',        // add this
             }}>
               {msg.role === 'assistant'
-                ? <ReactMarkdown>{msg.content}</ReactMarkdown>
+                ? <ReactMarkdown
+                  components={{
+                    ul: ({node, ...props}) => (
+                      <ul style={{ paddingLeft: '1.25rem', margin: '0.25rem 0' }} {...props} />
+                    ),
+                    li: ({node, ...props}) => (
+                      <li style={{ marginBottom: '0.25rem' }} {...props} />
+                    ),
+                    p: ({node, ...props}) => (
+                      <p style={{ margin: '0.25rem 0' }} {...props} />
+                    ),
+                  }}
+                >{msg.content}</ReactMarkdown>
                 : msg.content
               }
             </div>
