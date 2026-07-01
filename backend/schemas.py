@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 
 class UserCreate(BaseModel):
@@ -31,6 +31,7 @@ class DocumentResponse(BaseModel):
     filename: str
     file_type: str
     status: str
+    error_message: Optional[str] = None
     uploaded_at: datetime
 
     class Config:

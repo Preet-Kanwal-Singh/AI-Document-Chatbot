@@ -1,4 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import Document, User, Conversation, Message
@@ -8,6 +8,10 @@ from ..services.embedder import chunk_and_embed
 from ..auth import get_current_user
 from ..vector_store import delete_chunks
 from typing import List
+import os
+import tempfile
+from ..services.video import process_video_upload
+
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -32,6 +36,21 @@ ALLOWED_TYPES = {
 
 AUDIO_FILE_TYPES = {"mp3", "wav", "m4a", "ogg", "webm", "flac"}
 MAX_AUDIO_SIZE_BYTES = 25 * 1024 * 1024  # Groq API hard limit
+
+ALLOWED_VIDEO_TYPES = {
+    "video/mp4": "video",
+    "video/mpeg": "video",
+    "video/quicktime": "video",  # .mov
+    "video/avi": "video",
+    "video/x-flv": "video",
+    "video/mpg": "video",
+    "video/webm": "video",
+    "video/wmv": "video",
+    "video/3gpp": "video",
+}
+
+MAX_VIDEO_SIZE_BYTES = 300 * 1024 * 1024  # 300MB
+VIDEO_CHUNK_SIZE = 1024 * 1024  # read 1MB at a time, never hold the whole file in RAM
 
 
 @router.get("/", response_model=List[DocumentResponse])
@@ -122,3 +141,60 @@ def delete_document(
 
     db.delete(document)
     db.commit()
+
+async def _save_upload_streaming(file: UploadFile, max_bytes: int) -> str:
+    """Stream the upload to a temp file on disk, checking size as we go.
+    Aborts early on oversized files instead of waiting for the full upload first."""
+    total = 0
+    fd, temp_path = tempfile.mkstemp(suffix=f"_{file.filename}")
+    try:
+        with os.fdopen(fd, "wb") as out:
+            while chunk := await file.read(VIDEO_CHUNK_SIZE):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Video exceeds the {max_bytes // (1024 * 1024)}MB limit",
+                    )
+                out.write(chunk)
+    except HTTPException:
+        os.unlink(temp_path)
+        raise
+    return temp_path
+
+
+@router.post("/upload-video", response_model=DocumentResponse, status_code=202)
+async def upload_video(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if file.content_type not in ALLOWED_VIDEO_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported video format")
+
+    temp_path = await _save_upload_streaming(file, MAX_VIDEO_SIZE_BYTES)
+
+    try:
+        document = Document(
+            filename=file.filename,
+            file_type="video",
+            status="processing",
+            user_id=current_user.id,
+        )
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        background_tasks.add_task(process_video_upload, document.id, temp_path)
+
+    except Exception:
+        # Anything failing between temp-file creation and successfully
+        # scheduling the background task would otherwise leak the file
+        # on disk with no reference to it anywhere.
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        raise
+
+    return document
+

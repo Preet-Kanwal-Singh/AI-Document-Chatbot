@@ -6,6 +6,14 @@ import { useAuth } from '../context/auth-context'
 
 const STEP_DELAYS = [0, 1000, 2500, 4000, 5000]
 
+const VIDEO_MIME_TYPES = [
+  'video/mp4', 'video/mpeg', 'video/quicktime', 'video/avi',
+  'video/x-flv', 'video/mpg', 'video/webm', 'video/wmv', 'video/3gpp',
+]
+
+const POLL_INTERVAL_MS = 3000
+const POLL_TIMEOUT_MS = 10 * 60 * 1000 // 10 minutes
+
 function Upload() {
   const { logout } = useAuth()
   const [file, setFile] = useState(null)
@@ -37,14 +45,32 @@ function Upload() {
       const formData = new FormData()
       formData.append('file', file)
 
-      const response = await api.post('/documents/upload', formData, {
+      const isVideo = VIDEO_MIME_TYPES.includes(file.type)
+      const endpoint = isVideo ? '/documents/upload-video' : '/documents/upload'
+
+      const response = await api.post(endpoint, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
 
+      if (isVideo) {
+        // Video processing is async (202) — poll until ready
+        const docId = response.data.id
+        const start = Date.now()
+        while (Date.now() - start < POLL_TIMEOUT_MS) {
+          await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+          const statusRes = await api.get(`/documents/${docId}`)
+          const status = statusRes.data.status
+          if (status === 'ready') break
+          if (status === 'failed') {
+            throw new Error(statusRes.data.error_message || 'Video processing failed')
+          }
+        }
+      }
+
       setCurrentStep(5) // all done
       setTimeout(() => navigate(`/chat/${response.data.id}`), 800)
-    } catch {
-      setError('Upload failed. Please try again.')
+    } catch (err) {
+      setError(err.message || 'Upload failed. Please try again.')
       setUploading(false)
     }
   }
@@ -108,12 +134,12 @@ function Upload() {
         >
           <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📄</div>
           <p style={{ color: '#888', marginBottom: '1rem' }}>
-            {file ? file.name : 'Click to select a document (PDF, DOCX, TXT) or audio file (MP3, WAV, M4A)'}
+            {file ? file.name : 'Click to select a document (PDF, DOCX, TXT), audio (MP3, WAV, M4A), or video (MP4, MOV, AVI)'}
           </p>
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.ogg,.webm,.flac"
+            accept=".pdf,.docx,.txt,.mp3,.wav,.m4a,.ogg,.webm,.flac,.mp4,.mov,.avi,.wmv,.flv,.3gp,.mpg,.mpeg"
             style={{ display: 'none' }}
             onChange={(e) => setFile(e.target.files[0])}
           />

@@ -4,6 +4,7 @@ from datetime import datetime
 from .database import Base
 
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -24,6 +25,7 @@ class Document(Base):
     filename = Column(String, nullable=False)
     file_type = Column(String, nullable=False)
     status = Column(String, default="uploaded")
+    error_message = Column(Text, nullable=True)
     uploaded_at = Column(DateTime, default=datetime.utcnow)
 
     owner = relationship("User", back_populates="documents")
